@@ -16,6 +16,9 @@
 
 package javax.faces.component;
 
+import static com.sun.faces.facelets.tag.jsf.ComponentSupport.addToDescendantMarkIdCache;
+import static com.sun.faces.facelets.tag.jsf.ComponentSupport.isNotRenderingResponse;
+import static com.sun.faces.facelets.tag.jsf.ComponentSupport.removeFromDescendantMarkIdCache;
 import static com.sun.faces.util.Util.isAllNull;
 import static com.sun.faces.util.Util.isAnyNull;
 import static com.sun.faces.util.Util.isEmpty;
@@ -71,6 +74,7 @@ import javax.faces.event.BehaviorEvent;
 import javax.faces.event.ComponentSystemEventListener;
 import javax.faces.event.FacesEvent;
 import javax.faces.event.FacesListener;
+import javax.faces.event.PhaseId;
 import javax.faces.event.PostAddToViewEvent;
 import javax.faces.event.PostValidateEvent;
 import javax.faces.event.PreRemoveFromViewEvent;
@@ -82,6 +86,7 @@ import javax.faces.render.Renderer;
 
 import com.sun.faces.application.ValueBindingValueExpressionAdapter;
 import com.sun.faces.application.ValueExpressionValueBindingAdapter;
+import com.sun.faces.facelets.tag.jsf.ComponentSupport;
 
 /**
  * <p>
@@ -1327,15 +1332,12 @@ public abstract class UIComponentBase extends UIComponent {
 
         if (newWillSucceed && attachedObject instanceof Collection) {
             Collection attachedCollection = (Collection) attachedObject;
-            List<StateHolderSaver> resultList = null;
+            List<StateHolderSaver> resultList = new ArrayList<>(attachedCollection.size() + 1);
+            resultList.add(new StateHolderSaver(context, mapOrCollectionClass));
             for (Object item : attachedCollection) {
                 if (item != null) {
                     if (item instanceof StateHolder && ((StateHolder) item).isTransient()) {
                         continue;
-                    }
-                    if (resultList == null) {
-                        resultList = new ArrayList<>(attachedCollection.size() + 1);
-                        resultList.add(new StateHolderSaver(context, mapOrCollectionClass));
                     }
                     resultList.add(new StateHolderSaver(context, item));
                 }
@@ -1343,7 +1345,8 @@ public abstract class UIComponentBase extends UIComponent {
             result = resultList;
         } else if (newWillSucceed && attachedObject instanceof Map) {
             Map<Object, Object> attachedMap = (Map<Object, Object>) attachedObject;
-            List<StateHolderSaver> resultList = null;
+            List<StateHolderSaver> resultList = new ArrayList<>(attachedMap.size() * 2 + 1);
+            resultList.add(new StateHolderSaver(context, mapOrCollectionClass));
             Object key, value;
             for (Map.Entry<Object, Object> entry : attachedMap.entrySet()) {
                 key = entry.getKey();
@@ -1353,10 +1356,6 @@ public abstract class UIComponentBase extends UIComponent {
                 value = entry.getValue();
                 if (value instanceof StateHolder && ((StateHolder) value).isTransient()) {
                     continue;
-                }
-                if (resultList == null) {
-                    resultList = new ArrayList<>(attachedMap.size() * 2 + 1);
-                    resultList.add(new StateHolderSaver(context, mapOrCollectionClass));
                 }
                 resultList.add(new StateHolderSaver(context, key));
                 resultList.add(new StateHolderSaver(context, value));
@@ -2258,10 +2257,12 @@ public abstract class UIComponentBase extends UIComponent {
     private static class ChildrenList extends ArrayList<UIComponent> {
 
         private UIComponent component;
+        private FacesContext context;
 
         public ChildrenList(UIComponent component) {
             super(6);
             this.component = component;
+            this.context = component.getFacesContext();
         }
 
         @Override
@@ -2271,6 +2272,7 @@ public abstract class UIComponentBase extends UIComponent {
             } else if ((index < 0) || (index > size())) {
                 throw new IndexOutOfBoundsException();
             } else {
+                addToDescendantMarkIdCache(component, element);
                 eraseParent(element);
                 super.add(index, element);
                 element.setParent(component);
@@ -2283,6 +2285,7 @@ public abstract class UIComponentBase extends UIComponent {
             if (element == null) {
                 throw new NullPointerException();
             } else {
+                addToDescendantMarkIdCache(component, element);
                 eraseParent(element);
                 boolean result = super.add(element);
                 element.setParent(component);
@@ -2330,6 +2333,9 @@ public abstract class UIComponentBase extends UIComponent {
             }
             for (int i = 0; i < n; i++) {
                 UIComponent child = get(i);
+                if (isNotRenderingResponse(context)) {
+                    removeFromDescendantMarkIdCache(component, child);
+                }
                 child.setParent(null);
             }
             super.clear();
@@ -2353,6 +2359,9 @@ public abstract class UIComponentBase extends UIComponent {
         @Override
         public UIComponent remove(int index) {
             UIComponent child = get(index);
+            if (isNotRenderingResponse(context)) {
+                removeFromDescendantMarkIdCache(component, child);
+            }
             child.setParent(null);
             super.remove(index);
             return (child);
@@ -2364,7 +2373,9 @@ public abstract class UIComponentBase extends UIComponent {
             if (element == null) {
                 throw new NullPointerException();
             }
-
+            if (isNotRenderingResponse(context)) {
+                removeFromDescendantMarkIdCache(component, element);
+            }
             if (super.indexOf(element) != -1) {
                 element.setParent(null);
             }
@@ -2406,8 +2417,10 @@ public abstract class UIComponentBase extends UIComponent {
             } else if ((index < 0) || (index >= size())) {
                 throw new IndexOutOfBoundsException();
             } else {
+                addToDescendantMarkIdCache(component, element);
                 eraseParent(element);
                 UIComponent previous = get(index);
+                removeFromDescendantMarkIdCache(component, previous);
                 super.set(index, element);
                 previous.setParent(null);
                 element.setParent(component);
@@ -2568,10 +2581,12 @@ public abstract class UIComponentBase extends UIComponent {
     private static class FacetsMap extends HashMap<String, UIComponent> {
 
         private UIComponent component;
+        private FacesContext context;
 
         public FacetsMap(UIComponent component) {
             super(3, 1.0f);
             this.component = component;
+            context = component.getFacesContext();
         }
 
         @Override
@@ -2604,8 +2619,10 @@ public abstract class UIComponentBase extends UIComponent {
             }
             UIComponent previous = super.get(key);
             if (previous != null) {
+                removeFromDescendantMarkIdCache(component, previous);
                 previous.setParent(null);
             }
+            addToDescendantMarkIdCache(component, value);
             eraseParent(value);
             UIComponent result = super.put(key, value);
             value.setParent(component);
@@ -2627,6 +2644,9 @@ public abstract class UIComponentBase extends UIComponent {
         public UIComponent remove(Object key) {
             UIComponent previous = get(key);
             if (previous != null) {
+                if (isNotRenderingResponse(context)) {
+                    removeFromDescendantMarkIdCache(component, previous);
+                }
                 previous.setParent(null);
             }
             super.remove(key);
@@ -3414,7 +3434,11 @@ public abstract class UIComponentBase extends UIComponent {
                 if (kid.isTransient()) {
                     continue;
                 }
-                
+
+                if (i >= childState.length) {
+                    continue;
+                }
+
                 Object currentState = childState[i++];
                 
                 if (currentState == null) {
@@ -3435,7 +3459,11 @@ public abstract class UIComponentBase extends UIComponent {
             int facetsSize = getFacets().size();
             
             while (j < facetsSize) {
-                
+
+                if (i >= childState.length) {
+                    break;
+                }
+
                 Object[] facetSaveState = (Object[]) childState[i++];
                 
                 if (facetSaveState != null) {

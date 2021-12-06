@@ -16,6 +16,7 @@
 
 package javax.faces.component;
 
+import static com.sun.faces.facelets.tag.jsf.ComponentSupport.MARK_CREATED;
 import static com.sun.faces.util.Util.isAnyNull;
 import static com.sun.faces.util.Util.isOneOf;
 import static java.util.Collections.emptyMap;
@@ -1254,7 +1255,7 @@ public abstract class UIComponent implements PartialStateHolder, TransientStateH
         
         return found;
     }
-    
+
 
     // ------------------------------------------------ Facet Management Methods
 
@@ -1786,9 +1787,9 @@ public abstract class UIComponent implements PartialStateHolder, TransientStateH
         //
         // detect case where push was never called. In that case, pop should be a no-op
         if (_isPushedAsCurrentRefCount < 1) {
-        	if (componentELStack.peek() != this) {
-        		return;
-        	}
+            if (componentELStack.peek() != this) {
+                return;
+            }
             LOGGER.log(Level.SEVERE, "the component(" + this + 
                 ") is the head component of the stack, but it's _isPushedAsCurrentRefCount < 1");
         }

@@ -48,7 +48,7 @@
     <properties>
         <mojarra.group.id>org.glassfish</mojarra.group.id>
         <mojarra.artifact.id>jakarta.faces</mojarra.artifact.id>
-        <mojarra.version>2.3.14</mojarra.version>
+        <mojarra.version>2.3.17</mojarra.version>
         <non.final>false</non.final>
         <extension.name>javax.faces</extension.name>
         <spec.version>2.3</spec.version>
