@@ -180,19 +180,18 @@ class ComponentStateHelper implements StateHelper, TransientStateHelper {
      */
     @Override
     public void add(Serializable key, Object value) {
-
-        if (component.initialStateMarked()) {
-            ((List<Object>) 
-            deltaMap.computeIfAbsent(key, e -> new ArrayList<>(4)))
-                    .add(value);
-        }
-        
         List<Object> items = (List<Object>) get(key);
         if (items == null) {
             items = new ArrayList<>(4);
             defaultMap.put(key, items);
         }
-        
+
+        if (component.initialStateMarked()) {
+            ((List<Object>)
+            deltaMap.computeIfAbsent(key, e -> new ArrayList<>((List<Object>) get(key))))
+                    .add(value);
+        }
+
         items.add(value);
     }
 
