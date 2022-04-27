@@ -65,8 +65,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.logging.Logger;
 
 import javax.faces.context.FacesContext;
+import javax.servlet.ServletContext;
 
 import com.sun.faces.config.ConfigManager;
+import com.sun.faces.config.WebConfiguration;
 import com.sun.faces.spi.InjectionProvider;
 
 final class FactoryFinderInstance {
@@ -250,8 +252,11 @@ final class FactoryFinderInstance {
             }
 
         } else {
-            LOGGER.log(SEVERE,
-                "Unable to call @PreDestroy annotated methods because no InjectionProvider can be found. Does this container implement the Mojarra Injection SPI?");
+            FacesContext facesContext = FacesContext.getCurrentInstance();
+            if (facesContext != null && WebConfiguration.getInstanceWithoutCreating((ServletContext) facesContext.getExternalContext().getContext()) != null) {
+                LOGGER.log(SEVERE,
+                    "Unable to obtain InjectionProvider from init time FacesContext. Does this container implement the Mojarra Injection SPI?");
+            }         
         }
     }
 
@@ -272,8 +277,11 @@ final class FactoryFinderInstance {
         if (injectionProvider != null) {
             factories.put(INJECTION_PROVIDER_KEY, injectionProvider);
         } else {
-            LOGGER.log(SEVERE,
-                "Unable to obtain InjectionProvider from init time FacesContext. Does this container implement the Mojarra Injection SPI?");
+            ServletContext servletContext = (ServletContext) facesContext.getExternalContext().getContext();
+            if (WebConfiguration.getInstanceWithoutCreating(servletContext) != null) {
+                LOGGER.log(SEVERE,
+                    "Unable to obtain InjectionProvider from init time FacesContext. Does this container implement the Mojarra Injection SPI?");
+            }         
         }
     }
 
